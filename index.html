@@ -1,769 +1,630 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Caixa de Chips">
-<meta name="theme-color" content="#12213D">
-<title>Caixa de Chips</title>
-<style>
-  :root{
-    --ink:#182234;
-    --ink-soft:#535E70;
-    --bg:#F3F4EF;
-    --panel:#FFFFFF;
-    --navy:#12213D;
-    --navy-2:#1C3358;
-    --gold:#C08A2E;
-    --gold-soft:#EFDDB3;
-    --green:#2E7D5B;
-    --green-soft:#E3EFE8;
-    --red:#B4483A;
-    --red-soft:#F5E5E1;
-    --line:#DEE1D8;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:var(--bg);
-    color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    font-size:15px;
-    line-height:1.5;
-  }
-  .app{max-width:960px;margin:0 auto;padding:0 20px 60px;}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chips da Serra - Vendas</title>
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Firebase App e Firestore (SDK v10 Modular via CDN) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      onSnapshot, 
+      query, 
+      orderBy, 
+      deleteDoc, 
+      doc, 
+      setDoc, 
+      getDoc, 
+      serverTimestamp,
+      where 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-  header.top{background:var(--navy);color:#fff;padding:28px 20px 22px;}
-  .top-inner{max-width:960px;margin:0 auto;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-  .brand{display:flex;align-items:center;gap:12px;}
-  .brand-mark{width:34px;height:34px;border-radius:7px;background:linear-gradient(135deg,var(--gold),#8f6a22);position:relative;flex:none;}
-  .brand-mark::after{content:"";position:absolute;inset:8px 6px;background:
-      linear-gradient(var(--navy),var(--navy)) 0 0/8px 8px no-repeat,
-      linear-gradient(var(--navy),var(--navy)) 10px 0/8px 8px no-repeat;
-    opacity:.55;border-radius:2px;}
-  h1{font-size:21px;margin:0;letter-spacing:-0.01em;font-weight:700;}
-  .brand p{margin:2px 0 0;font-size:12.5px;color:#B9C2D6;}
-  .signal{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#B9C2D6;}
-  .dot{width:7px;height:7px;border-radius:50%;background:#4FCE8A;box-shadow:0 0 0 3px rgba(79,206,138,.18);transition:background .3s;}
-  .dot.off{background:#E0A23B;box-shadow:0 0 0 3px rgba(224,162,59,.18);}
+    // Suas configurações do Firebase (NÃO ALTERAR ESTE BLOCO)
+    const firebaseConfig = {
+      apiKey: "AIzaSyD...", // Sua apiKey do Firebase
+      authDomain: "chips-da-serra.firebaseapp.com",
+      projectId: "chips-da-serra",
+      storageBucket: "chips-da-serra.appspot.com",
+      messagingSenderId: "...",
+      appId: "..."
+    };
 
-  nav.tabs{display:flex;gap:2px;background:var(--navy-2);padding:0 20px;overflow-x:auto;}
-  nav.tabs .inner{max-width:960px;margin:0 auto;display:flex;gap:2px;width:100%;}
-  .tab-btn{background:transparent;border:none;color:#C6CEE0;padding:12px 16px;font-size:13.5px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;font-family:inherit;}
-  .tab-btn:hover{color:#fff;}
-  .tab-btn.active{color:#fff;border-bottom-color:var(--gold);font-weight:600;}
+    // Inicializa o Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-  section{display:none;padding-top:26px;}
-  section.active{display:block;}
+    // Torna as instâncias globais para uso nas funções do app
+    window.db = db;
+    window.firestoreTools = { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, setDoc, getDoc, serverTimestamp, where };
+  </script>
 
-  h2{font-size:17px;margin:0 0 4px;letter-spacing:-0.01em;}
-  .subtitle{color:var(--ink-soft);font-size:13px;margin:0 0 20px;}
-
-  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:24px;}
-  .tile{background:var(--panel);border-left:4px solid var(--line);padding:16px 18px;}
-  .tile.green{border-left-color:var(--green);}
-  .tile.red{border-left-color:var(--red);}
-  .tile.gold{border-left-color:var(--gold);}
-  .tile-label{font-size:12px;color:var(--ink-soft);margin:0 0 6px;}
-  .tile-value{font-size:24px;font-weight:700;letter-spacing:-0.01em;font-variant-numeric:tabular-nums;margin:0;}
-  .tile-sub{font-size:11.5px;color:var(--ink-soft);margin-top:4px;}
-
-  .panel{background:var(--panel);border:1px solid var(--line);padding:18px 20px;margin-bottom:22px;}
-  .panel h3{font-size:14px;margin:0 0 14px;}
-
-  .chart{display:flex;align-items:flex-end;gap:14px;height:140px;padding-top:10px;}
-  .chart-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;}
-  .chart-bars{display:flex;gap:3px;align-items:flex-end;height:110px;width:100%;justify-content:center;}
-  .bar{width:12px;border-radius:2px 2px 0 0;}
-  .bar.rev{background:var(--green);}
-  .bar.exp{background:var(--red);}
-  .chart-month{font-size:11px;color:var(--ink-soft);}
-  .chart-legend{display:flex;gap:16px;font-size:12px;color:var(--ink-soft);margin-bottom:4px;}
-  .chart-legend span{display:inline-flex;align-items:center;gap:5px;}
-  .lg-dot{width:8px;height:8px;border-radius:2px;}
-
-  form.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end;}
-  .field{display:flex;flex-direction:column;gap:5px;}
-  .field label{font-size:12px;color:var(--ink-soft);}
-  .field input,.field select,.field textarea{border:1px solid var(--line);padding:9px 10px;font-size:13.5px;font-family:inherit;background:#fff;color:var(--ink);}
-  .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--gold);outline-offset:-1px;}
-  .full{grid-column:1/-1;}
-  button.primary{background:var(--navy);color:#fff;border:none;padding:10px 18px;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:600;}
-  button.primary:hover{background:var(--navy-2);}
-  button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);padding:8px 14px;font-size:12.5px;cursor:pointer;font-family:inherit;}
-  button.ghost:hover{border-color:var(--ink-soft);}
-  button.danger{background:transparent;border:1px solid var(--red);color:var(--red);padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit;}
-  button.danger:hover{background:var(--red-soft);}
-  button:disabled{opacity:.4;cursor:not-allowed;}
-
-  table{width:100%;border-collapse:collapse;font-size:13px;}
-  th{text-align:left;font-size:11.5px;color:var(--ink-soft);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);}
-  td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
-  tr:last-child td{border-bottom:none;}
-  .num{font-variant-numeric:tabular-nums;text-align:right;}
-  .pos{color:var(--green);}
-  .neg{color:var(--red);}
-  .empty{color:var(--ink-soft);font-size:13px;padding:20px 0;text-align:center;}
-  .row-actions{display:flex;gap:6px;justify-content:flex-end;}
-  .badge{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--gold-soft);color:#7A5A1E;white-space:nowrap;}
-
-  .lock-box{max-width:340px;margin:20px 0;}
-  .lock-box .field{margin-bottom:12px;}
-  .admin-badge{display:inline-flex;align-items:center;gap:6px;background:var(--green-soft);color:var(--green);font-size:12px;padding:4px 10px;margin-bottom:16px;}
-  .danger-zone{border:1px solid var(--red);padding:16px 18px;margin-top:20px;}
-  .danger-zone h3{color:var(--red);}
-  .msg{font-size:12.5px;padding:8px 12px;margin-bottom:14px;}
-  .msg.ok{background:var(--green-soft);color:var(--green);}
-  .msg.err{background:var(--red-soft);color:var(--red);}
-  .hint{font-size:12px;color:var(--ink-soft);margin-top:6px;}
-  .setup-warning{background:var(--red-soft);color:var(--red);padding:16px 20px;margin:20px 0;font-size:13.5px;}
-
-  @media (max-width:560px){
-    .top-inner{flex-direction:column;align-items:flex-start;}
-    form.grid{grid-template-columns:1fr;}
-  }
-</style>
+  <style>
+    /* Estilos personalizados para experiência mobile-app */
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      background-color: #F8FAFC; /* slate-50 */
+    }
+    .flavor-btn.active {
+      background-color: #f59e0b; /* amber-500 */
+      color: white;
+      border-color: #f59e0b;
+    }
+  </style>
 </head>
-<body>
+<body class="text-slate-800 font-sans min-h-screen flex flex-col">
 
-<div id="setupWarning" style="display:none;" class="app">
-  <div class="setup-warning">
-    <strong>Falta configurar o banco de dados.</strong><br>
-    Abra este arquivo em um editor de texto, procure por <code>SUA_CONFIGURACAO_AQUI</code>
-    e cole ali o objeto <code>firebaseConfig</code> que você copiou do Firebase. Depois salve e recarregue a página.
-  </div>
-</div>
-
-<div id="mainApp">
-
-<header class="top">
-  <div class="top-inner">
-    <div class="brand">
-      <div class="brand-mark"></div>
-      <div>
-        <h1>Caixa de Chips</h1>
-        <p>Controle de vendas, gastos e clientes</p>
-      </div>
+  <!-- Cabeçalho -->
+  <header class="bg-white text-slate-900 p-4 shadow-sm flex justify-between items-center sticky top-0 z-10 border-b border-slate-100">
+    <div class="flex items-center space-x-3">
+      <!-- Logo SVG baseada na imagem enviada -->
+      <svg class="w-9 h-9" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 15L15 65H85L50 15Z" fill="#6B8E23"/> <!-- Verde Oliva -->
+        <path d="M50 35L30 65H70L50 35Z" fill="#556B2F"/> <!-- Verde Oliva Escuro -->
+      </svg>
+      <h1 class="text-2xl font-extrabold tracking-tighter text-slate-950">Chips<span class="text-amber-500">.</span>daSerra</h1>
     </div>
-    <div class="signal"><span class="dot" id="connDot"></span> <span id="connText">conectando...</span></div>
-  </div>
-</header>
+    <span id="status-sync" class="text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full flex items-center gap-1.5 font-medium border border-emerald-100">
+      <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+      Sincronizado
+    </span>
+  </header>
 
-<nav class="tabs">
-  <div class="inner">
-    <button class="tab-btn active" data-tab="dashboard">Painel</button>
-    <button class="tab-btn" data-tab="vendas">Vendas</button>
-    <button class="tab-btn" data-tab="gastos">Gastos</button>
-    <button class="tab-btn" data-tab="clientes">Clientes</button>
-    <button class="tab-btn" data-tab="admin">Admin</button>
-  </div>
-</nav>
-
-<div class="app">
-
-  <section id="dashboard" class="active">
-    <h2>Visão geral</h2>
-    <p class="subtitle">Resumo de tudo que entrou e saiu do caixa.</p>
-
-    <div class="tiles">
-      <div class="tile green">
-        <p class="tile-label">Receita em vendas</p>
-        <p class="tile-value" id="tileReceita">R$ 0,00</p>
-        <p class="tile-sub" id="tileVendasQtd">0 vendas</p>
-      </div>
-      <div class="tile red">
-        <p class="tile-label">Gastos</p>
-        <p class="tile-value" id="tileGastos">R$ 0,00</p>
-        <p class="tile-sub" id="tileGastosQtd">0 lançamentos</p>
-      </div>
-      <div class="tile gold">
-        <p class="tile-label">Lucro líquido</p>
-        <p class="tile-value" id="tileLucro">R$ 0,00</p>
-        <p class="tile-sub">Vendas − custo dos chips − gastos</p>
-      </div>
-      <div class="tile">
-        <p class="tile-label">Clientes cadastrados</p>
-        <p class="tile-value" id="tileClientes">0</p>
-        <p class="tile-sub">Base de clientes</p>
-      </div>
+  <!-- Conteúdo Principal -->
+  <main class="flex-1 p-4 max-w-lg mx-auto w-full pb-24">
+    <div id="app-content">
+      <!-- O aplicativo renderiza dinamicamente as abas aqui -->
     </div>
+  </main>
 
-    <div class="panel">
-      <h3>Últimos 6 meses</h3>
-      <div class="chart-legend">
-        <span><span class="lg-dot" style="background:var(--green)"></span>Receita</span>
-        <span><span class="lg-dot" style="background:var(--red)"></span>Gastos</span>
-      </div>
-      <div class="chart" id="chart"></div>
-    </div>
+  <!-- Barra de Navegação Inferior -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white p-2 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] border-t border-slate-100 z-10 flex justify-around items-center max-w-lg mx-auto rounded-t-2xl">
+    <button onclick="router.navigate('dashboard')" class="nav-link flex flex-col items-center p-2 text-slate-500 active:text-amber-500" data-page="dashboard">
+      <i data-lucide="layout-grid" class="w-6 h-6"></i>
+      <span class="text-xs font-medium mt-1">Painel</span>
+    </button>
+    <button onclick="router.navigate('vendas')" class="nav-link flex flex-col items-center p-2 text-slate-500 active:text-amber-500" data-page="vendas">
+      <i data-lucide="shopping-cart" class="w-6 h-6"></i>
+      <span class="text-xs font-medium mt-1">Vendas</span>
+    </button>
+    <button onclick="router.navigate('clientes')" class="nav-link flex flex-col items-center p-2 text-slate-500 active:text-amber-500" data-page="clientes">
+      <i data-lucide="users" class="w-6 h-6"></i>
+      <span class="text-xs font-medium mt-1">Clientes</span>
+    </button>
+    <button onclick="router.navigate('admin')" class="nav-link flex flex-col items-center p-2 text-slate-500 active:text-amber-500" data-page="admin">
+      <i data-lucide="settings" class="w-6 h-6"></i>
+      <span class="text-xs font-medium mt-1">Admin</span>
+    </button>
+  </nav>
 
-    <div class="panel">
-      <h3>Últimos lançamentos</h3>
-      <table id="ultimosLancTable">
-        <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th class="num">Valor</th></tr></thead>
-        <tbody></tbody>
-      </table>
-      <div class="empty" id="ultimosLancEmpty" style="display:none;">Nenhum lançamento ainda. Comece registrando uma venda ou um gasto.</div>
-    </div>
-  </section>
+  <script type="module">
+    import { format } from "https://cdn.skypack.dev/date-fns";
+    import { ptBR } from "https://cdn.skypack.dev/date-fns/locale";
 
-  <section id="vendas">
-    <h2>Vendas</h2>
-    <p class="subtitle">Registre cada chip vendido.</p>
+    const { db, firestoreTools } = window;
+    const { collection, addDoc, onSnapshot, query, orderBy, where, serverTimestamp } = firestoreTools;
 
-    <div class="panel">
-      <form class="grid" id="formVenda">
-        <div class="field"><label for="vData">Data</label><input type="date" id="vData" required></div>
-        <div class="field"><label for="vCliente">Cliente</label><input type="text" id="vCliente" placeholder="Nome do cliente" list="listaClientesNomes" required></div>
-        <div class="field"><label for="vOperadora">Operadora</label>
-          <select id="vOperadora">
-            <option>Vivo</option><option>Claro</option><option>Tim</option><option>Oi</option><option>Outra</option>
-          </select>
-        </div>
-        <div class="field"><label for="vValor">Valor da venda (R$)</label><input type="number" id="vValor" step="0.01" min="0" required></div>
-        <div class="field"><label for="vCusto">Custo do chip (R$)</label><input type="number" id="vCusto" step="0.01" min="0" placeholder="0,00"></div>
-        <div class="field"><label for="vPagamento">Pagamento</label>
-          <select id="vPagamento"><option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Fiado</option></select>
-        </div>
-        <div class="field full"><label for="vObs">Observação</label><input type="text" id="vObs" placeholder="Opcional"></div>
-        <div class="full"><button type="submit" class="primary">Registrar venda</button></div>
-      </form>
-    </div>
+    // Definição dos sabores solicitados
+    const SABORES = [
+      "Batata Inglesa",
+      "Batata Doce",
+      "Macaxeira",
+      "Banana",
+      "Pururuca de Bacon"
+    ];
 
-    <div class="panel">
-      <h3>Histórico de vendas</h3>
-      <table id="vendasTable">
-        <thead><tr><th>Data</th><th>Cliente</th><th>Operadora</th><th>Pagto</th><th class="num">Valor</th><th class="num">Lucro</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-      <div class="empty" id="vendasEmpty" style="display:none;">Nenhuma venda registrada ainda.</div>
-    </div>
-  </section>
+    // --- Sistema de Roteamento Simples ---
+    const router = {
+      currentPage: null,
+      navigate(page) {
+        if (this.currentPage === page) return;
+        this.currentPage = page;
+        this.renderPage(page);
+        this.updateNavLinks(page);
+      },
+      renderPage(page) {
+        const content = document.getElementById('app-content');
+        content.innerHTML = ''; // Limpa o conteúdo
 
-  <section id="gastos">
-    <h2>Gastos</h2>
-    <p class="subtitle">Compra de chips no atacado, recarga, transporte, e outras despesas.</p>
-
-    <div class="panel">
-      <form class="grid" id="formGasto">
-        <div class="field"><label for="gData">Data</label><input type="date" id="gData" required></div>
-        <div class="field"><label for="gCategoria">Categoria</label>
-          <select id="gCategoria">
-            <option>Compra de chips</option><option>Transporte</option><option>Recarga</option><option>Embalagem</option><option>Outro</option>
-          </select>
-        </div>
-        <div class="field full"><label for="gDescricao">Descrição</label><input type="text" id="gDescricao" placeholder="Ex.: 20 chips Vivo no atacado" required></div>
-        <div class="field"><label for="gValor">Valor (R$)</label><input type="number" id="gValor" step="0.01" min="0" required></div>
-        <div class="full"><button type="submit" class="primary">Registrar gasto</button></div>
-      </form>
-    </div>
-
-    <div class="panel">
-      <h3>Histórico de gastos</h3>
-      <table id="gastosTable">
-        <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th class="num">Valor</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-      <div class="empty" id="gastosEmpty" style="display:none;">Nenhum gasto registrado ainda.</div>
-    </div>
-  </section>
-
-  <section id="clientes">
-    <h2>Base de clientes</h2>
-    <p class="subtitle">Cadastro de quem já comprou ou pode comprar chip com você.</p>
-
-    <div class="panel">
-      <form class="grid" id="formCliente">
-        <div class="field"><label for="cNome">Nome</label><input type="text" id="cNome" required></div>
-        <div class="field"><label for="cTelefone">Telefone</label><input type="text" id="cTelefone" placeholder="(00) 00000-0000"></div>
-        <div class="field"><label for="cOperadora">Operadora preferida</label>
-          <select id="cOperadora"><option>—</option><option>Vivo</option><option>Claro</option><option>Tim</option><option>Oi</option></select>
-        </div>
-        <div class="field full"><label for="cObs">Observação</label><input type="text" id="cObs" placeholder="Opcional"></div>
-        <div class="full"><button type="submit" class="primary">Adicionar cliente</button></div>
-      </form>
-    </div>
-
-    <div class="panel">
-      <h3>Clientes cadastrados</h3>
-      <table id="clientesTable">
-        <thead><tr><th>Nome</th><th>Telefone</th><th>Operadora</th><th class="num">Chips comprados</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-      <div class="empty" id="clientesEmpty" style="display:none;">Nenhum cliente cadastrado ainda.</div>
-    </div>
-  </section>
-
-  <section id="admin">
-    <h2>Admin</h2>
-    <p class="subtitle">Área com acesso completo aos dados: exportar, corrigir e apagar registros.</p>
-
-    <div id="adminLocked">
-      <div class="panel lock-box">
-        <div id="adminMsg"></div>
-        <p class="hint" id="pinSetupHint" style="display:none;">Nenhum PIN foi definido ainda. Crie um PIN de administrador para proteger essa área.</p>
-        <div class="field">
-          <label for="adminPin">PIN de administrador</label>
-          <input type="password" id="adminPin" inputmode="numeric" placeholder="••••">
-        </div>
-        <button class="primary" id="btnAdminEntrar">Entrar</button>
-      </div>
-    </div>
-
-    <div id="adminUnlocked" style="display:none;">
-      <div class="admin-badge">● Modo administrador ativo</div>
-
-      <div class="panel">
-        <h3>Exportar dados</h3>
-        <p class="hint" style="margin-bottom:12px;">Baixe os dados em CSV para guardar uma cópia ou abrir no Excel/Sheets.</p>
-        <button class="ghost" id="btnExportVendas">Baixar vendas.csv</button>
-        <button class="ghost" id="btnExportGastos">Baixar gastos.csv</button>
-        <button class="ghost" id="btnExportClientes">Baixar clientes.csv</button>
-      </div>
-
-      <div class="panel">
-        <h3>Resumo bruto</h3>
-        <table>
-          <tbody>
-            <tr><td>Total de vendas</td><td class="num" id="adminTotVendas">0</td></tr>
-            <tr><td>Total de gastos</td><td class="num" id="adminTotGastos">0</td></tr>
-            <tr><td>Total de clientes</td><td class="num" id="adminTotClientes">0</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="panel">
-        <h3>Trocar PIN</h3>
-        <div class="field" style="max-width:220px;">
-          <label for="novoPin">Novo PIN</label>
-          <input type="password" id="novoPin" inputmode="numeric" placeholder="••••">
-        </div>
-        <button class="ghost" id="btnTrocarPin" style="margin-top:10px;">Salvar novo PIN</button>
-      </div>
-
-      <div class="danger-zone">
-        <h3>Zona de risco</h3>
-        <p class="hint" style="margin-bottom:12px;">Isso apaga todos os dados do app para todo mundo da família. Não tem como desfazer.</p>
-        <button class="danger" id="btnZerar">Apagar todos os dados</button>
-      </div>
-
-      <button class="ghost" id="btnSair" style="margin-top:6px;">Sair do modo admin</button>
-    </div>
-  </section>
-
-  <datalist id="listaClientesNomes"></datalist>
-</div>
-</div>
-
-<!-- Firebase (compat SDK, carregado do navegador de quem acessa o site) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
-<script>
-// ======================================================================
-// COLE AQUI O OBJETO firebaseConfig QUE VOCÊ COPIOU DO FIREBASE,
-// SUBSTITUINDO A LINHA "SUA_CONFIGURACAO_AQUI" ABAIXO.
-// Exemplo do formato esperado:
-// const firebaseConfig = {
-//   apiKey: "AIza...",
-//   authDomain: "caixa-de-chips.firebaseapp.com",
-//   projectId: "caixa-de-chips",
-//   storageBucket: "caixa-de-chips.appspot.com",
-//   messagingSenderId: "123456789",
-//   appId: "1:123456789:web:abcdef"
-// };
-// ======================================================================
-const firebaseConfig = {
-  apiKey: "AIzaSyDVbx7vLnQTZmfwhPN2gAmT9RiCYk3BoyY",
-  authDomain: "chips-32671.firebaseapp.com",
-  projectId: "chips-32671",
-  storageBucket: "chips-32671.firebasestorage.app",
-  messagingSenderId: "302880225969",
-  appId: "1:302880225969:web:68e92a39d204ef4820c090"
-};
-</script>
-
-<script>
-(function(){
-  if (firebaseConfig === "SUA_CONFIGURACAO_AQUI") {
-    document.getElementById('setupWarning').style.display = 'block';
-    document.getElementById('mainApp').style.display = 'none';
-    return;
-  }
-
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-  try { db.enablePersistence({ synchronizeTabs: true }).catch(()=>{}); } catch(e){}
-
-  const docRef = db.collection('caixaDeChips').doc('dados');
-  const FieldValue = firebase.firestore.FieldValue;
-
-  let vendas = [], gastos = [], clientes = [], config = { pin: null };
-  let isAdmin = false;
-  let ready = false;
-
-  const $ = id => document.getElementById(id);
-  const fmt = v => (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-
-  document.title = "Caixa de Chips";
-  $('vData').value = $('gData').value = new Date().toISOString().slice(0,10);
-
-  // ---------- CONEXÃO / AUTENTICAÇÃO ----------
-  function setConn(status){
-    const dot = $('connDot'), txt = $('connText');
-    if(status === 'on'){ dot.classList.remove('off'); txt.textContent = 'sincronizado'; }
-    else if(status === 'connecting'){ dot.classList.add('off'); txt.textContent = 'conectando...'; }
-    else { dot.classList.add('off'); txt.textContent = 'sem conexão (salvando localmente)'; }
-  }
-  window.addEventListener('online', ()=> setConn(ready ? 'on' : 'connecting'));
-  window.addEventListener('offline', ()=> setConn('off'));
-  setConn('connecting');
-
-  auth.signInAnonymously().catch(err=>{
-    console.error(err);
-    setConn('off');
-  });
-
-  auth.onAuthStateChanged(user=>{
-    if(!user) return;
-    docRef.onSnapshot(snap=>{
-      const data = snap.data() || {};
-      vendas = data.vendas || [];
-      gastos = data.gastos || [];
-      clientes = data.clientes || [];
-      config = data.config || { pin: null };
-      ready = true;
-      setConn(navigator.onLine ? 'on' : 'off');
-      renderAll();
-      refreshAdminGate();
-    }, err=>{
-      console.error(err);
-      setConn('off');
-    });
-  });
-
-  // ---------- TABS ----------
-  document.querySelectorAll('.tab-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-      document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
-      btn.classList.add('active');
-      $(btn.dataset.tab).classList.add('active');
-    });
-  });
-
-  // ---------- RENDER ----------
-  function renderAll(){
-    renderDashboard();
-    renderVendas();
-    renderGastos();
-    renderClientes();
-    renderAdminSummary();
-  }
-
-  function totals(){
-    const receita = vendas.reduce((s,v)=>s+Number(v.valor||0),0);
-    const custoChips = vendas.reduce((s,v)=>s+Number(v.custo||0),0);
-    const gastosTotal = gastos.reduce((s,g)=>s+Number(g.valor||0),0);
-    const lucro = receita - custoChips - gastosTotal;
-    return { receita, custoChips, gastosTotal, lucro };
-  }
-
-  function renderDashboard(){
-    const t = totals();
-    $('tileReceita').textContent = fmt(t.receita);
-    $('tileVendasQtd').textContent = vendas.length + (vendas.length===1?' venda':' vendas');
-    $('tileGastos').textContent = fmt(t.custoChips + t.gastosTotal);
-    $('tileGastosQtd').textContent = gastos.length + (gastos.length===1?' lançamento':' lançamentos');
-    $('tileLucro').textContent = fmt(t.lucro);
-    $('tileLucro').style.color = t.lucro < 0 ? 'var(--red)' : 'var(--ink)';
-    $('tileClientes').textContent = clientes.length;
-
-    renderChart();
-
-    const all = [
-      ...vendas.map(v=>({data:v.data, tipo:'Venda', desc:v.cliente+' · '+v.operadora, valor:v.valor, sign:1})),
-      ...gastos.map(g=>({data:g.data, tipo:'Gasto', desc:g.descricao, valor:g.valor, sign:-1}))
-    ].sort((a,b)=> b.data.localeCompare(a.data)).slice(0,8);
-
-    const tbody = document.querySelector('#ultimosLancTable tbody');
-    tbody.innerHTML = '';
-    all.forEach(item=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${fmtDate(item.data)}</td><td><span class="badge">${item.tipo}</span></td><td>${esc(item.desc)}</td>
-        <td class="num ${item.sign>0?'pos':'neg'}">${item.sign>0?'+':'−'} ${fmt(item.valor)}</td>`;
-      tbody.appendChild(tr);
-    });
-    $('ultimosLancEmpty').style.display = all.length ? 'none' : 'block';
-    document.querySelector('#ultimosLancTable').style.display = all.length ? '' : 'none';
-  }
-
-  function renderChart(){
-    const months = [];
-    const now = new Date();
-    for(let i=5;i>=0;i--){
-      const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-      months.push({ key: d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'), label: d.toLocaleDateString('pt-BR',{month:'short'}) });
-    }
-    const dataByMonth = months.map(m=>{
-      const rev = vendas.filter(v=>v.data && v.data.startsWith(m.key)).reduce((s,v)=>s+Number(v.valor||0),0);
-      const exp = gastos.filter(g=>g.data && g.data.startsWith(m.key)).reduce((s,g)=>s+Number(g.valor||0),0)
-                + vendas.filter(v=>v.data && v.data.startsWith(m.key)).reduce((s,v)=>s+Number(v.custo||0),0);
-      return { ...m, rev, exp };
-    });
-    const max = Math.max(1, ...dataByMonth.map(d=>Math.max(d.rev,d.exp)));
-    const chart = $('chart');
-    chart.innerHTML = '';
-    dataByMonth.forEach(d=>{
-      const col = document.createElement('div');
-      col.className = 'chart-col';
-      col.innerHTML = `
-        <div class="chart-bars">
-          <div class="bar rev" style="height:${Math.max(2,(d.rev/max)*100)}px" title="Receita: ${fmt(d.rev)}"></div>
-          <div class="bar exp" style="height:${Math.max(2,(d.exp/max)*100)}px" title="Gastos: ${fmt(d.exp)}"></div>
-        </div>
-        <div class="chart-month">${d.label}</div>`;
-      chart.appendChild(col);
-    });
-  }
-
-  function renderVendas(){
-    const tbody = document.querySelector('#vendasTable tbody');
-    tbody.innerHTML = '';
-    const sorted = [...vendas].sort((a,b)=>b.data.localeCompare(a.data));
-    sorted.forEach(v=>{
-      const lucro = Number(v.valor||0) - Number(v.custo||0);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${fmtDate(v.data)}</td><td>${esc(v.cliente)}</td><td>${esc(v.operadora)}</td><td>${esc(v.pagamento||'')}</td>
-        <td class="num">${fmt(v.valor)}</td><td class="num ${lucro>=0?'pos':'neg'}">${fmt(lucro)}</td>
-        <td class="row-actions">${isAdmin?`<button class="danger" data-del-venda="${v.id}">Excluir</button>`:''}</td>`;
-      tbody.appendChild(tr);
-    });
-    $('vendasEmpty').style.display = vendas.length ? 'none' : 'block';
-    document.querySelector('#vendasTable').style.display = vendas.length ? '' : 'none';
-
-    document.querySelectorAll('[data-del-venda]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        if(!confirm('Excluir esta venda?')) return;
-        const item = vendas.find(v=>v.id === btn.dataset.delVenda);
-        if(item) await docRef.set({ vendas: FieldValue.arrayRemove(item) }, { merge:true });
-      });
-    });
-
-    const dl = $('listaClientesNomes');
-    dl.innerHTML = clientes.map(c=>`<option value="${esc(c.nome)}">`).join('');
-  }
-
-  function renderGastos(){
-    const tbody = document.querySelector('#gastosTable tbody');
-    tbody.innerHTML = '';
-    const sorted = [...gastos].sort((a,b)=>b.data.localeCompare(a.data));
-    sorted.forEach(g=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${fmtDate(g.data)}</td><td><span class="badge">${esc(g.categoria)}</span></td><td>${esc(g.descricao)}</td>
-        <td class="num">${fmt(g.valor)}</td>
-        <td class="row-actions">${isAdmin?`<button class="danger" data-del-gasto="${g.id}">Excluir</button>`:''}</td>`;
-      tbody.appendChild(tr);
-    });
-    $('gastosEmpty').style.display = gastos.length ? 'none' : 'block';
-    document.querySelector('#gastosTable').style.display = gastos.length ? '' : 'none';
-
-    document.querySelectorAll('[data-del-gasto]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        if(!confirm('Excluir este gasto?')) return;
-        const item = gastos.find(g=>g.id === btn.dataset.delGasto);
-        if(item) await docRef.set({ gastos: FieldValue.arrayRemove(item) }, { merge:true });
-      });
-    });
-  }
-
-  function renderClientes(){
-    const tbody = document.querySelector('#clientesTable tbody');
-    tbody.innerHTML = '';
-    const sorted = [...clientes].sort((a,b)=>a.nome.localeCompare(b.nome));
-    sorted.forEach(c=>{
-      const qtdChips = vendas.filter(v=>v.cliente.toLowerCase() === c.nome.toLowerCase()).length;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${esc(c.nome)}</td><td>${esc(c.telefone||'—')}</td><td>${esc(c.operadora||'—')}</td>
-        <td class="num">${qtdChips}</td>
-        <td class="row-actions">${isAdmin?`<button class="danger" data-del-cliente="${c.id}">Excluir</button>`:''}</td>`;
-      tbody.appendChild(tr);
-    });
-    $('clientesEmpty').style.display = clientes.length ? 'none' : 'block';
-    document.querySelector('#clientesTable').style.display = clientes.length ? '' : 'none';
-
-    document.querySelectorAll('[data-del-cliente]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        if(!confirm('Excluir este cliente?')) return;
-        const item = clientes.find(c=>c.id === btn.dataset.delCliente);
-        if(item) await docRef.set({ clientes: FieldValue.arrayRemove(item) }, { merge:true });
-      });
-    });
-  }
-
-  function renderAdminSummary(){
-    $('adminTotVendas').textContent = vendas.length;
-    $('adminTotGastos').textContent = gastos.length;
-    $('adminTotClientes').textContent = clientes.length;
-  }
-
-  function fmtDate(iso){
-    if(!iso) return '—';
-    const [y,m,d] = iso.split('-');
-    return `${d}/${m}/${y}`;
-  }
-  function esc(s){
-    return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
-
-  // ---------- FORMS ----------
-  $('formVenda').addEventListener('submit', async e=>{
-    e.preventDefault();
-    const venda = {
-      id: uid(),
-      data: $('vData').value,
-      cliente: $('vCliente').value.trim(),
-      operadora: $('vOperadora').value,
-      valor: parseFloat($('vValor').value)||0,
-      custo: parseFloat($('vCusto').value)||0,
-      pagamento: $('vPagamento').value,
-      obs: $('vObs').value.trim()
+        switch (page) {
+          case 'dashboard': renderDashboard(content); break;
+          case 'vendas': renderVendas(content); break;
+          case 'clientes': renderClientes(content); break;
+          case 'admin': renderAdmin(content); break;
+          default: renderDashboard(content);
+        }
+        
+        if (window.lucide) lucide.createIcons();
+      },
+      updateNavLinks(page) {
+        document.querySelectorAll('.nav-link').forEach(link => {
+          if (link.dataset.page === page) {
+            link.classList.add('text-amber-600');
+            link.classList.remove('text-slate-500');
+          } else {
+            link.classList.remove('text-amber-600');
+            link.classList.add('text-slate-500');
+          }
+        });
+      }
     };
-    await docRef.set({ vendas: FieldValue.arrayUnion(venda) }, { merge:true });
+    window.router = router;
 
-    if(!clientes.some(c=>c.nome.toLowerCase() === venda.cliente.toLowerCase())){
-      const novoCliente = { id: uid(), nome: venda.cliente, telefone:'', operadora: venda.operadora, obs:'' };
-      await docRef.set({ clientes: FieldValue.arrayUnion(novoCliente) }, { merge:true });
+    // --- Funções de Renderização de Página ---
+
+    function renderDashboard(container) {
+      const today = new Date();
+      container.innerHTML = `
+        <div class="space-y-6">
+          <div class="flex flex-col items-center justify-center p-6 bg-white rounded-3xl shadow-sm border border-slate-100 text-center">
+             <!-- Logo Grande no Painel -->
+             <svg class="w-24 h-24 mb-4" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M50 15L15 65H85L50 15Z" fill="#6B8E23"/>
+                <path d="M50 35L30 65H70L50 35Z" fill="#556B2F"/>
+             </svg>
+             <h2 class="text-3xl font-extrabold tracking-tighter text-slate-950">Chips<span class="text-amber-500">.</span>daSerra</h2>
+             <p class="text-slate-500 mt-1 text-sm">Mais sabor para todos os momentos</p>
+          </div>
+
+          <!-- Filtros do Painel (Ano, Mês, Dia) -->
+          <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+            <h3 class="text-lg font-bold flex items-center gap-2"><i data-lucide="filter" class="w-5 h-5 text-amber-500"></i> Filtrar Relatório</h3>
+            <div class="grid grid-cols-3 gap-3">
+              <select id="dash-filter-year" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"></select>
+              <select id="dash-filter-month" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"></select>
+              <select id="dash-filter-day" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"></select>
+            </div>
+            <button id="btn-apply-dash-filter" class="w-full bg-slate-900 text-white p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-800">
+              <i data-lucide="search" class="w-4 h-4"></i>
+              Aplicar Filtro
+            </button>
+          </div>
+
+          <!-- Cards de Resumo -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-amber-500 text-white p-5 rounded-3xl shadow-sm">
+              <p class="text-xs font-medium opacity-80">Vendas no Período</p>
+              <p id="dash-total-vendas" class="text-3xl font-extrabold mt-1">R$ 0,00</p>
+            </div>
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+              <p class="text-xs font-medium text-slate-500">Qtd. Produtos</p>
+              <p id="dash-qtd-produtos" class="text-3xl font-extrabold mt-1 text-slate-950">0</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Preenche os selects de filtro
+      populateDashboardFilters(today);
+      // Carrega dados iniciais (mês atual)
+      loadDashboardData(today.getFullYear(), today.getMonth() + 1, today.getDate());
+
+      // Evento do botão de filtro
+      document.getElementById('btn-apply-dash-filter').addEventListener('click', () => {
+        const year = parseInt(document.getElementById('dash-filter-year').value);
+        const month = parseInt(document.getElementById('dash-filter-month').value);
+        const day = parseInt(document.getElementById('dash-filter-day').value);
+        loadDashboardData(year, month, day);
+      });
     }
 
-    e.target.reset();
-    $('vData').value = new Date().toISOString().slice(0,10);
-  });
+    function populateDashboardFilters(date) {
+      const yearSelect = document.getElementById('dash-filter-year');
+      const monthSelect = document.getElementById('dash-filter-month');
+      const daySelect = document.getElementById('dash-filter-day');
+      
+      const currentYear = date.getFullYear();
+      for (let y = currentYear; y >= currentYear - 2; y--) {
+        const option = new Option(y, y);
+        if (y === currentYear) option.selected = true;
+        yearSelect.add(option);
+      }
 
-  $('formGasto').addEventListener('submit', async e=>{
-    e.preventDefault();
-    const gasto = {
-      id: uid(),
-      data: $('gData').value,
-      categoria: $('gCategoria').value,
-      descricao: $('gDescricao').value.trim(),
-      valor: parseFloat($('gValor').value)||0
-    };
-    await docRef.set({ gastos: FieldValue.arrayUnion(gasto) }, { merge:true });
-    e.target.reset();
-    $('gData').value = new Date().toISOString().slice(0,10);
-  });
+      const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+      months.forEach((m, i) => {
+        const option = new Option(m, i + 1);
+        if (i === date.getMonth()) option.selected = true;
+        monthSelect.add(option);
+      });
 
-  $('formCliente').addEventListener('submit', async e=>{
-    e.preventDefault();
-    const cliente = {
-      id: uid(),
-      nome: $('cNome').value.trim(),
-      telefone: $('cTelefone').value.trim(),
-      operadora: $('cOperadora').value === '—' ? '' : $('cOperadora').value,
-      obs: $('cObs').value.trim()
-    };
-    await docRef.set({ clientes: FieldValue.arrayUnion(cliente) }, { merge:true });
-    e.target.reset();
-  });
+      // Função para atualizar os dias baseados no mês/ano
+      const updateDays = () => {
+        const y = parseInt(yearSelect.value);
+        const m = parseInt(monthSelect.value);
+        const daysInMonth = new Date(y, m, 0).getDate();
+        const currentDay = daySelect.value;
+        daySelect.innerHTML = '<option value="0">Todos os Dias</option>';
+        for (let d = 1; d <= daysInMonth; d++) {
+          const option = new Option(d, d);
+          if (parseInt(currentDay) === d) option.selected = true;
+          daySelect.add(option);
+        }
+      };
 
-  // ---------- ADMIN ----------
-  function showAdminMsg(text, type){
-    $('adminMsg').innerHTML = text ? `<div class="msg ${type}">${text}</div>` : '';
-  }
-
-  function refreshAdminGate(){
-    $('pinSetupHint').style.display = config.pin ? 'none' : 'block';
-    $('adminPin').placeholder = config.pin ? '••••' : 'Crie um PIN';
-    $('btnAdminEntrar').textContent = config.pin ? 'Entrar' : 'Criar PIN e entrar';
-  }
-
-  $('btnAdminEntrar').addEventListener('click', async ()=>{
-    const val = $('adminPin').value.trim();
-    if(!val){ showAdminMsg('Digite um PIN.', 'err'); return; }
-    if(!config.pin){
-      await docRef.set({ config: { pin: val } }, { merge:true });
-      isAdmin = true;
-      showAdminMsg('', '');
-      enterAdmin();
-      return;
+      yearSelect.addEventListener('change', updateDays);
+      monthSelect.addEventListener('change', updateDays);
+      updateDays(); // Preenche inicial
     }
-    if(val === config.pin){
-      isAdmin = true;
-      showAdminMsg('', '');
-      enterAdmin();
-    } else {
-      showAdminMsg('PIN incorreto.', 'err');
+
+    function loadDashboardData(year, month, day) {
+      let q = query(collection(db, "vendas"), orderBy("data", "desc"));
+      
+      // Filtro no Firestore é limitado (precisaria de range para datas).
+      // Para simplificar e manter tempo real, filtramos no cliente.
+      
+      onSnapshot(q, (snapshot) => {
+        let total = 0;
+        let qtd = 0;
+
+        snapshot.forEach((doc) => {
+          const venda = doc.data();
+          if (!venda.data || !venda.data.seconds) return;
+          const dataVenda = new Date(venda.data.seconds * 1000);
+          
+          const matchYear = dataVenda.getFullYear() === year;
+          const matchMonth = (dataVenda.getMonth() + 1) === month;
+          const matchDay = day === 0 || dataVenda.getDate() === day;
+
+          if (matchYear && matchMonth && matchDay) {
+            total += venda.valorTotal || 0;
+            qtd += venda.quantidade || 0;
+          }
+        });
+
+        document.getElementById('dash-total-vendas').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('dash-qtd-produtos').innerText = qtd;
+      });
     }
-  });
 
-  function enterAdmin(){
-    $('adminLocked').style.display = 'none';
-    $('adminUnlocked').style.display = 'block';
-    $('adminPin').value = '';
-    renderAll();
-  }
+    // --- Página de Vendas ( Nova Venda e Histórico ) ---
 
-  $('btnSair').addEventListener('click', ()=>{
-    isAdmin = false;
-    $('adminLocked').style.display = 'block';
-    $('adminUnlocked').style.display = 'none';
-    refreshAdminGate();
-    renderAll();
-  });
+    function renderVendas(container) {
+      container.innerHTML = `
+        <div class="space-y-6">
+          <!-- Formulário de Nova Venda -->
+          <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-5">
+            <h3 class="text-xl font-bold flex items-center gap-2.5 text-slate-950"><i data-lucide="plus-circle" class="w-6 h-6 text-amber-500"></i> Registrar Nova Venda</h3>
+            
+            <div class="space-y-3">
+              <label class="block text-sm font-medium text-slate-600">Selecione o Sabor:</label>
+              <div class="grid grid-cols-2 gap-2.5" id="flavor-selection">
+                ${SABORES.map(sabor => `
+                  <button type="button" class="flavor-btn p-3 border border-slate-200 rounded-xl text-sm font-medium hover:border-amber-300 hover:bg-amber-50 transition-colors" data-flavor="${sabor}">${sabor}</button>
+                `).join('')}
+              </div>
+            </div>
 
-  $('btnTrocarPin').addEventListener('click', async ()=>{
-    const novo = $('novoPin').value.trim();
-    if(!novo){ return; }
-    await docRef.set({ config: { pin: novo } }, { merge:true });
-    $('novoPin').value = '';
-    alert('PIN atualizado.');
-  });
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label class="block text-sm font-medium text-slate-600">Quantidade</label>
+                <input type="number" id="venda-qtd" placeholder="0" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold">
+              </div>
+              <div class="space-y-1.5">
+                <label class="block text-sm font-medium text-slate-600">Valor Unitário (R$)</label>
+                <input type="number" id="venda-valor" placeholder="0.00" step="0.50" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold">
+              </div>
+            </div>
 
-  $('btnZerar').addEventListener('click', async ()=>{
-    if(!confirm('Tem certeza? Isso apaga vendas, gastos e clientes para sempre.')) return;
-    if(!confirm('Confirma mesmo? Não tem volta.')) return;
-    await docRef.set({ vendas: [], gastos: [], clientes: [] }, { merge:true });
-    alert('Dados apagados.');
-  });
+            <div class="space-y-1.5">
+              <label class="block text-sm font-medium text-slate-600">Cliente (Opcional)</label>
+              <select id="venda-cliente" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                <option value="">Selecione um cliente...</option>
+              </select>
+            </div>
 
-  function downloadCSV(filename, rows){
-    const csv = rows.map(r => r.map(cell => {
-      const s = String(cell ?? '');
-      return /[",\n;]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-    }).join(';')).join('\n');
-    const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
+            <button id="btn-registrar-venda" class="w-full bg-amber-500 text-white p-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2.5 hover:bg-amber-600 shadow-md shadow-amber-100">
+              <i data-lucide="check-circle" class="w-6 h-6"></i>
+              Confirmar Venda
+            </button>
+          </div>
 
-  $('btnExportVendas').addEventListener('click', ()=>{
-    downloadCSV('vendas.csv', [
-      ['Data','Cliente','Operadora','Pagamento','Valor','Custo','Lucro','Observacao'],
-      ...vendas.map(v=>[v.data, v.cliente, v.operadora, v.pagamento, v.valor, v.custo, (Number(v.valor)-Number(v.custo||0)), v.obs])
-    ]);
-  });
-  $('btnExportGastos').addEventListener('click', ()=>{
-    downloadCSV('gastos.csv', [
-      ['Data','Categoria','Descricao','Valor'],
-      ...gastos.map(g=>[g.data, g.categoria, g.descricao, g.valor])
-    ]);
-  });
-  $('btnExportClientes').addEventListener('click', ()=>{
-    downloadCSV('clientes.csv', [
-      ['Nome','Telefone','Operadora','Observacao'],
-      ...clientes.map(c=>[c.nome, c.telefone, c.operadora, c.obs])
-    ]);
-  });
-})();
-</script>
+          <!-- Filtros do Histórico de Vendas -->
+          <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+            <h3 class="text-lg font-bold flex items-center gap-2"><i data-lucide="search" class="w-5 h-5 text-amber-500"></i> Buscar no Histórico</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <select id="filter-venda-cliente" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                <option value="">Todos os Clientes</option>
+              </select>
+              <input type="date" id="filter-venda-data" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            </div>
+          </div>
+
+          <!-- Lista de Últimas Vendas -->
+          <div class="space-y-3">
+            <h3 class="text-lg font-bold text-slate-900 px-1">Últimas Vendas</h3>
+            <div id="lista-vendas" class="space-y-3">
+              <!-- Vendas carregadas aqui -->
+              <p class="text-center text-sm text-slate-500 py-4">Carregando vendas...</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Logica de seleção de sabor
+      let selectedFlavor = null;
+      document.querySelectorAll('.flavor-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.flavor-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          selectedFlavor = btn.dataset.flavor;
+        });
+      });
+
+      // Preenche select de clientes
+      populateClienteSelects(['venda-cliente', 'filter-venda-cliente']);
+
+      // Carrega Histórico
+      loadVendasHistory();
+
+      // Eventos de Filtro
+      document.getElementById('filter-venda-cliente').addEventListener('change', loadVendasHistory);
+      document.getElementById('filter-venda-data').addEventListener('change', loadVendasHistory);
+
+      // Ação de Registrar
+      document.getElementById('btn-registrar-venda').addEventListener('click', async () => {
+        const qtd = parseInt(document.getElementById('venda-qtd').value);
+        const valor = parseFloat(document.getElementById('venda-valor').value);
+        const clienteId = document.getElementById('venda-cliente').value;
+        const clienteNome = document.getElementById('venda-cliente').options[document.getElementById('venda-cliente').selectedIndex].text;
+
+        if (!selectedFlavor || !qtd || !valor || qtd <= 0 || valor <= 0) {
+          alert('Por favor, selecione o sabor, quantidade e valor válidos.');
+          return;
+        }
+
+        const btn = document.getElementById('btn-registrar-venda');
+        btn.disabled = true; btn.innerText = 'Registrando...';
+
+        try {
+          await addDoc(collection(db, "vendas"), {
+            produto: selectedFlavor,
+            quantidade: qtd,
+            valorUnitario: valor,
+            valorTotal: qtd * valor,
+            clienteId: clienteId || null,
+            clienteNome: clienteId ? clienteNome : "Consumidor Final",
+            data: serverTimestamp()
+          });
+          
+          // Limpa formulário
+          document.querySelectorAll('.flavor-btn').forEach(b => b.classList.remove('active'));
+          selectedFlavor = null;
+          document.getElementById('venda-qtd').value = '';
+          document.getElementById('venda-valor').value = '';
+          document.getElementById('venda-cliente').value = '';
+          
+          alert('Venda registrada com sucesso!');
+        } catch (e) {
+          console.error("Erro ao salvar:", e);
+          alert('Erro ao salvar venda. Tente novamente.');
+        } finally {
+          btn.disabled = false; btn.innerHTML = '<i data-lucide="check-circle" class="w-6 h-6"></i> Confirmar Venda';
+          if (window.lucide) lucide.createIcons();
+        }
+      });
+    }
+
+    async function populateClienteSelects(selectIds) {
+      const q = query(collection(db, "clientes"), orderBy("nome"));
+      onSnapshot(q, (snapshot) => {
+        selectIds.forEach(id => {
+          const select = document.getElementById(id);
+          if (!select) return;
+          const currentVal = select.value;
+          const firstOption = select.options[0];
+          select.innerHTML = '';
+          select.add(firstOption);
+          snapshot.forEach(doc => {
+            const cliente = doc.data();
+            const option = new Option(cliente.nome, doc.id);
+            if (doc.id === currentVal) option.selected = true;
+            select.add(option);
+          });
+        });
+      });
+    }
+
+    function loadVendasHistory() {
+      const container = document.getElementById('lista-vendas');
+      const filtroCliente = document.getElementById('filter-venda-cliente').value;
+      const filtroData = document.getElementById('filter-venda-data').value; // YYYY-MM-DD
+
+      let q = query(collection(db, "vendas"), orderBy("data", "desc"));
+      
+      // Firestore não suporta bem queries compostas sem indices.
+      // Filtramos no cliente para simplicidade e tempo real.
+
+      onSnapshot(q, (snapshot) => {
+        container.innerHTML = '';
+        let hasVendas = false;
+
+        snapshot.forEach((doc) => {
+          const venda = doc.data();
+          if (!venda.data || !venda.data.seconds) return;
+          
+          const dataVenda = new Date(venda.data.seconds * 1000);
+          const dataFormatada = format(dataVenda, "dd/MM/yyyy HH:mm", { locale: ptBR });
+          const dataISO = dataVenda.toISOString().split('T')[0]; // YYYY-MM-DD
+
+          // Aplica filtros no cliente
+          if (filtroCliente && venda.clienteId !== filtroCliente) return;
+          if (filtroData && dataISO !== filtroData) return;
+
+          hasVendas = true;
+          container.innerHTML += `
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <p class="font-bold text-slate-950">${venda.produto}</p>
+                  <p class="text-xs text-slate-500 flex items-center gap-1"><i data-lucide="user" class="w-3 h-3"></i> ${venda.clienteNome}</p>
+                </div>
+                <p class="text-lg font-extrabold text-amber-600">${venda.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+              </div>
+              <div class="flex justify-between items-center text-xs text-slate-400 border-t border-slate-50 pt-2 mt-2">
+                <p>${venda.quantidade} un. x ${venda.valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                <p>${dataFormatada}</p>
+              </div>
+            </div>
+          `;
+        });
+
+        if (!hasVendas) {
+          container.innerHTML = '<p class="text-center text-sm text-slate-500 py-6 bg-white rounded-2xl border border-slate-100">Nenhuma venda encontrada com esses filtros.</p>';
+        }
+        if (window.lucide) lucide.createIcons();
+      });
+    }
+
+    // --- Página de Clientes ( Lista e Cadastro ) ---
+
+    function renderClientes(container) {
+      container.innerHTML = `
+        <div class="space-y-6">
+          <!-- Formulário de Novo Cliente -->
+          <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+            <h3 class="text-xl font-bold flex items-center gap-2.5 text-slate-950"><i data-lucide="user-plus" class="w-6 h-6 text-amber-500"></i> Cadastrar Novo Cliente</h3>
+            
+            <div class="space-y-1.5">
+              <label class="block text-sm font-medium text-slate-600">Nome Completo</label>
+              <input type="text" id="cliente-nome" placeholder="Ex: João Silva" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="block text-sm font-medium text-slate-600">Telefone / WhatsApp</label>
+              <input type="tel" id="cliente-fone" placeholder="(88) 99999-9999" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            </div>
+
+            <!-- Novos campos de endereço solicitaados -->
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label class="block text-sm font-medium text-slate-600">Rua e Número</label>
+                <input type="text" id="cliente-rua" placeholder="Rua Central, 123" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+              </div>
+              <div class="space-y-1.5">
+                <label class="block text-sm font-medium text-slate-600">Cidade</label>
+                <input type="text" id="cliente-cidade" placeholder="Ex: Santa Quitéria" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+              </div>
+            </div>
+
+            <button id="btn-cadastrar-cliente" class="w-full bg-slate-900 text-white p-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2.5 hover:bg-slate-800">
+              <i data-lucide="save" class="w-6 h-6"></i>
+              Salvar Cliente
+            </button>
+          </div>
+
+          <!-- Lista de Clientes -->
+          <div class="space-y-3">
+            <h3 class="text-lg font-bold text-slate-900 px-1">Meus Clientes</h3>
+            <div id="lista-clientes" class="space-y-3">
+              <!-- Clientes carregados aqui -->
+              <p class="text-center text-sm text-slate-500 py-4">Carregando clientes...</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      loadClientesList();
+
+      document.getElementById('btn-cadastrar-cliente').addEventListener('click', async () => {
+        const nome = document.getElementById('cliente-nome').value;
+        const fone = document.getElementById('cliente-fone').value;
+        const rua = document.getElementById('cliente-rua').value;
+        const cidade = document.getElementById('cliente-cidade').value;
+
+        if (!nome || !fone) {
+          alert('Por favor, preencha pelo menos Nome e Telefone.');
+          return;
+        }
+
+        const btn = document.getElementById('btn-cadastrar-cliente');
+        btn.disabled = true; btn.innerText = 'Salvando...';
+
+        try {
+          await addDoc(collection(db, "clientes"), {
+            nome: nome,
+            telefone: fone,
+            rua: rua || "",
+            cidade: cidade || "",
+            dataCadastro: serverTimestamp()
+          });
+          
+          document.getElementById('cliente-nome').value = '';
+          document.getElementById('cliente-fone').value = '';
+          document.getElementById('cliente-rua').value = '';
+          document.getElementById('cliente-cidade').value = '';
+          alert('Cliente cadastrado com sucesso!');
+        } catch (e) {
+          console.error("Erro ao cadastrar:", e);
+          alert('Erro ao cadastrar cliente.');
+        } finally {
+          btn.disabled = false; btn.innerHTML = '<i data-lucide="save" class="w-6 h-6"></i> Salvar Cliente';
+          if (window.lucide) lucide.createIcons();
+        }
+      });
+    }
+
+    function loadClientesList() {
+      const container = document.getElementById('lista-clientes');
+      const q = query(collection(db, "clientes"), orderBy("nome"));
+
+      onSnapshot(q, (snapshot) => {
+        container.innerHTML = '';
+        let hasClientes = false;
+        snapshot.forEach((doc) => {
+          hasClientes = true;
+          const cliente = doc.data();
+          const endereco = [cliente.rua, cliente.cidade].filter(Boolean).join(', ');
+          container.innerHTML += `
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center gap-3">
+              <div>
+                <p class="font-bold text-slate-950">${cliente.nome}</p>
+                <p class="text-xs text-amber-700 font-medium flex items-center gap-1.5 mt-1"><i data-lucide="phone" class="w-3.5 h-3.5"></i> ${cliente.telefone}</p>
+                ${endereco ? `<p class="text-xs text-slate-500 flex items-center gap-1.5 mt-1"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i> ${endereco}</p>` : ''}
+              </div>
+              <a href="https://wa.me/55${cliente.telefone.replace(/\D/g,'')}" target="_blank" class="p-3 bg-emerald-50 text-emerald-600 rounded-full hover:bg-emerald-100 flex-shrink-0">
+                <i data-lucide="message-circle" class="w-5 h-5"></i>
+              </a>
+            </div>
+          `;
+        });
+        if (!hasClientes) {
+          container.innerHTML = '<p class="text-center text-sm text-slate-500 py-6 bg-white rounded-2xl border border-slate-100">Nenhum cliente cadastrado.</p>';
+        }
+        if (window.lucide) lucide.createIcons();
+      });
+    }
+
+    // --- Página Admin ---
+    function renderAdmin(container) {
+       container.innerHTML = `
+        <div class="space-y-6">
+          <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+            <h3 class="text-xl font-bold flex items-center gap-2.5 text-slate-950"><i data-lucide="settings" class="w-6 h-6 text-amber-500"></i> Configurações</h3>
+            <p class="text-sm text-slate-600">Aba de configurações do sistema. Funcionalidades extras podem ser adicionadas aqui.</p>
+             <div class="p-4 bg-slate-100 text-slate-700 rounded-xl text-center text-xs font-mono">
+               Acesso Restrito
+             </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // --- Inicialização do App ---
+    document.addEventListener("DOMContentLoaded", () => {
+      // Inicia na página do painel
+      router.navigate('dashboard');
+    });
+
+  </script>
 </body>
 </html>
